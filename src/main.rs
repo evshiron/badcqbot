@@ -13,7 +13,7 @@ const KEY_MIRAI_QQ_STR: &str = "mirai_qq_str";
 const KEY_TEST_GROUP_STR: &str = "test_group_str";
 
 const STORE_PATH_PATTERN: &str =
-  "store/%Y%m/{group_id}_{sender_id}_{msg_id}_%Y%m%d%H%M%S_{idx}.{suffix}";
+  "store/v2/%Y%m/{group_id}_{sender_id}_{msg_id}_%Y%m%d%H%M%S_{idx}_{size}.{suffix}";
 
 #[derive(Debug)]
 struct MiraiImage {
@@ -136,7 +136,7 @@ impl BadCqBot {
     let group_name = &event["data"]["sender"]["group"]["name"].as_str();
 
     let mut msg_id = 0u64;
-    let mut datetime = Local::now();
+    let mut sent_ts = Local::now();
     let mut images = Vec::<MiraiImage>::new();
 
     let msg_chain = &event["data"]["messageChain"];
@@ -146,7 +146,7 @@ impl BadCqBot {
       match msg_type {
         "Source" => {
           msg_id = msg["id"].as_u64().unwrap();
-          datetime = Local.timestamp(msg["time"].as_i64().unwrap(), 0);
+          sent_ts = Local.timestamp(msg["time"].as_i64().unwrap(), 0);
         },
         "Image" => {
           // only work for specified groups
@@ -186,7 +186,7 @@ impl BadCqBot {
     }
 
     let count = self
-      .store_images(datetime, *group_id, *sender_id, msg_id, images)
+      .store_images(sent_ts, *group_id, *sender_id, msg_id, images)
       .await;
 
     if let Some(group_id) = group_id {
@@ -206,7 +206,7 @@ impl BadCqBot {
 
   async fn store_images(
     &self,
-    datetime: DateTime<Local>,
+    sent_ts: DateTime<Local>,
     group_id: Option<u64>,
     sender_id: u64,
     msg_id: u64,
@@ -219,13 +219,14 @@ impl BadCqBot {
       match res.bytes().await {
         Ok(bytes) => match infer::get(&bytes[..]) {
           Some(kind) => {
-            let path = datetime
+            let path = sent_ts
               .format(STORE_PATH_PATTERN)
               .to_string()
               .replace("{group_id}", &group_id.unwrap_or(0).to_string())
               .replace("{sender_id}", &sender_id.to_string())
               .replace("{msg_id}", &msg_id.to_string())
               .replace("{idx}", &idx.to_string())
+              .replace("{size}", &bytes.len().to_string())
               .replace("{suffix}", kind.extension());
 
             let path = Path::new(&path);
