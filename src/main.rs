@@ -78,47 +78,63 @@ impl BadCqBot {
       .to_string()
   }
 
-  async fn send_friend_message(self: Arc<Self>, target_id: u64, text: &str) {
+  async fn send_friend_message(
+    self: Arc<Self>,
+    target_id: u64,
+    quote_msg_id: Option<u64>,
+    text: &str,
+  ) {
+    let mut json = json::object! {
+      "sessionKey": self.session.get().unwrap().clone(),
+      "target": target_id,
+      "messageChain": json::array![
+        json::object! {
+          "type": "Plain",
+          "text": text,
+        },
+      ],
+    };
+
+    if let Some(quote_msg_id) = quote_msg_id {
+      json["quote"] = json::from(quote_msg_id);
+    }
+
     let res = self
       .http_client
       .post(format!("http://{}/sendFriendMessage", self.host,))
       .header("content-type", "application/json")
-      .body(
-        json::object! {
-          "sessionKey": self.session.get().unwrap().clone(),
-          "target": target_id,
-          "messageChain": json::array![
-            json::object! {
-              "type": "Plain",
-              "text": text,
-            },
-          ],
-        }
-        .to_string(),
-      )
+      .body(json.to_string())
       .send()
       .await
       .unwrap();
   }
 
-  async fn send_group_message(self: Arc<Self>, target_id: u64, text: &str) {
+  async fn send_group_message(
+    self: Arc<Self>,
+    target_id: u64,
+    quote_msg_id: Option<u64>,
+    text: &str,
+  ) {
+    let mut json = json::object! {
+      "sessionKey": self.session.get().unwrap().clone(),
+      "target": target_id,
+      "messageChain": json::array![
+        json::object! {
+          "type": "Plain",
+          "text": text,
+        },
+      ],
+    };
+
+    if let Some(quote_msg_id) = quote_msg_id {
+      json["quote"] = json::from(quote_msg_id);
+    }
+
     let res = self
       .http_client
       .post(format!("http://{}/sendGroupMessage", self.host,))
       .header("content-type", "application/json")
-      .body(
-        json::object! {
-          "sessionKey": self.session.get().unwrap().clone(),
-          "target": target_id,
-          "messageChain": json::array![
-            json::object! {
-              "type": "Plain",
-              "text": text,
-            },
-          ],
-        }
-        .to_string(),
-      )
+      .body(json.to_string())
       .send()
       .await
       .unwrap();
@@ -193,13 +209,13 @@ impl BadCqBot {
       if *group_id == self.test_group_num {
         self
           .clone()
-          .send_group_message(*group_id, &format!("{}", count))
+          .send_group_message(*group_id, Some(msg_id), &format!("{}", count))
           .await;
       }
     } else {
       self
         .clone()
-        .send_friend_message(*sender_id, &format!("{}", count))
+        .send_friend_message(*sender_id, Some(msg_id), &format!("{}", count))
         .await;
     }
   }
