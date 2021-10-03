@@ -156,8 +156,8 @@ impl BadCqBot {
     let mut images = Vec::<MiraiImage>::new();
 
     let msg_chain = &event["data"]["messageChain"];
-    for i in 0..msg_chain.len() {
-      let msg = &msg_chain[i];
+    for idx in 0..msg_chain.len() {
+      let msg = &msg_chain[idx];
       let msg_type = msg["type"].as_str().unwrap();
       match msg_type {
         "Source" => {
@@ -182,6 +182,32 @@ impl BadCqBot {
             uuid: msg["imageId"].as_str().unwrap().to_string(),
             url: msg["url"].as_str().unwrap().to_string(),
           });
+        },
+        "Forward" => {
+          let node_list = &msg["nodeList"];
+          for idx in 0..node_list.len() {
+            let msg_chain = &node_list[idx]["messageChain"];
+            for idx in 0..msg_chain.len() {
+              let msg = &msg_chain[idx];
+              let msg_type = msg["type"].as_str().unwrap();
+              match msg_type {
+                "Image" => {
+                  // only work for specified groups
+                  if let Some(group_id) = group_id {
+                    if *group_id != self.test_group_num {
+                      continue;
+                    }
+                  }
+
+                  images.push(MiraiImage {
+                    uuid: msg["imageId"].as_str().unwrap().to_string(),
+                    url: msg["url"].as_str().unwrap().to_string(),
+                  });
+                },
+                _ => {},
+              }
+            }
+          }
         },
         "File" => {
           if let Some(group_id) = group_id {
